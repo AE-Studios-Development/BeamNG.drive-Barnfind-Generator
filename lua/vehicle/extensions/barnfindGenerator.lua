@@ -20,57 +20,59 @@ local function setupBarnfind(miles,condition,showState)
 	partCondition.initConditions(nil, totalMileage, genCondition, genCondition)
 	
 	-- other part wear setup
+	wheels.scaleBrakeTorque(genCondition)
+	
 	-- == detailed vehicle wear and condition coming soon :tm:
 	
 	-- gather info about the part wear
 	if Eng then
 		wearInfo["Engine"] = {
-			["Crankshaft"] = Eng.damageDynamicFrictionCoef,
-			["Spark_Plugs"] = Eng.damageIdleAVReadErrorRangeCoef,
-			["Fuel_Pump"] = Eng.fastIgnitionErrorChance,
-			["Idle_Controller"] = Eng.slowIgnitionErrorChance,
-			["Head_Gasket"] = Thr.headGasketBlown,
-			["Piston_Rings"] = Thr.pistonRingsDamaged,
-			["Connecting_Rods"] = Thr.connectingRodBearingsDamaged ,
+			["Crankshaft"] = Eng.damageDynamicFrictionCoef * Eng.wearDynamicFrictionCoef,
+			["Idle_Controller"] = tostring(math.max(math.floor(100 - (Eng.damageIdleAVReadErrorRangeCoef * Eng.wearIdleAVReadErrorRangeCoef * 2)), 0)).." %",
+			["Fuel_Pump"] = tostring(math.floor(100 - (Eng.fastIgnitionErrorChance * 100))).." %",
+			["Spark_Plugs"] = tostring(math.floor(100 - (Eng.slowIgnitionErrorChance * 100))).." %",
+			["Head_Gasket"] = Thr.headGasketBlown and "Bad" or "Good",
+			["Piston_Rings"] = Thr.pistonRingsDamaged and "Bad" or "Good",
+			["Connecting_Rods"] = Thr.connectingRodBearingsDamaged and "Bad" or "Good",
 			["Exhaust_Pipe"] = nil
 		}
 		
 		local _,reqInfo = Thr.getPartConditionRadiator()
 		wearInfo["Radiator"] = {
 			["Coolant_Level"] = reqInfo.coolantMass,
-			["Leaking"] = reqInfo.radiatorDamage
+			["Leaking"] = reqInfo.radiatorDamage == 0 and "Good" or "Bad"
 		}
 		
-		wearInfo["Oil Pan"] = Thr.debugData.engineThermalData.oilLeakRateOilpan
+		wearInfo["Oil_Pan"] = Thr.debugData.engineThermalData.oilLeakRateOilpan == 0 and "Good" or "Bad"
 		
 		if Tur.isExisting then
 			local _,reqInfo = Tur.getPartCondition()
 			wearInfo["Turbocharger"] = {
 				["Turbine"] = reqInfo.damageFrictionCoef,
-				["Compressor"] = reqInfo.damageExhaustPowerCoef
+				["Compressor"] = tostring(math.floor(reqInfo.damageExhaustPowerCoef * 100)).." %" 
 			}
 		end
 		
 		if Spc.isExisting then
 			local _,reqInfo = Spc.getPartCondition()
-			wearInfo["Supercharger"] = reqInfo.damagePressureCoef
+			wearInfo["Supercharger"] = tostring(math.floor(reqInfo.damagePressureCoef * 100)).." %" 
 		end
 	end
 	
 	for a,b in pairs(eSt) do
 		if b.type == "fuelTank" then
 			wearInfo["Fuel_Tank"] = {
-				["Fuel_Level"] = b.remainingRatio,
-				["Leaking"] = b.currentLeakRate
+				["Fuel_Level"] = tostring(math.floor(b.remainingRatio * 100)).." %",
+				["Leaking"] = b.currentLeakRate == 0 and "Good" or "Bad"
 			}
 		end
 	end
 	
 	if Clt then
 		wearInfo["Clutch"] = {
-			["Springs"] = Clt.clutchPermanentlyDamaged ,
-			["Disc"] = Clt.damageLockTorqueCoef ,
-			["Pressure_Plate"] = Clt.damageClutchFreePlayCoef
+			["Springs"] = Clt.clutchPermanentlyDamaged and "Bad" or "Good",
+			["Disc"] = tostring(math.floor(Clt.damageLockTorqueCoef * Clt.wearLockTorqueCoef * 100)).." %",
+			["Pressure_Plate"] = tostring(math.max(math.floor(100 - (Clt.damageClutchFreePlayCoef * Clt.wearClutchFreePlayCoef * 2)), 0)).." %"
 		}
 	end
 	
@@ -78,20 +80,20 @@ local function setupBarnfind(miles,condition,showState)
 		if Grb.type == "manualGearbox" then
 			wearInfo["Gearbox"] = nil
 		elseif Grb.type == "automaticGearbox" then
-			wearInfo["Gearbox"] = Grb.damageGearRatioChangeRateCoef
+			wearInfo["Gearbox"] = tostring(math.floor(Grb.damageGearRatioChangeRateCoef * Grb.wearGearRatioChangeRateCoef * 100)).." %"
 		elseif Grb.type == "dctGearbox" then
-			wearInfo["Gearbox"] = Grb.damageLockTorqueCoef
+			wearInfo["Gearbox"] = tostring(math.floor(Grb.damageLockTorqueCoef * Grb.wearLockTorqueCoef * 100)).." %"
 		end
 	end
 	
 	wearInfo["Body"] = {
-		["Paint"] = nil,
+		["Paint"] = tostring(math.floor(genCondition * 100)).." %",
 		["Panels"] = nil
 	}
 	
 	wearInfo["Chassis"] = {
 		["Suspension"] = nil,
-		["Brakes"] = nil,
+		["Brakes"] = tostring(math.floor(genCondition * 100)).." %",
 		["Tires"] = nil
 	}
 	
