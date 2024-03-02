@@ -10,7 +10,7 @@ local Override
 local BalanceWear
 
 local function setupBarnfind(seed, miles, condition, wearVar, showState, override, balanceWear, firstTime)
-	--local success,err = pcall(function()
+	local success,err = pcall(function()
 		-- variable setup
 		randomSeed = seed
 		Miles = miles
@@ -264,10 +264,10 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 			log('I', 'Barnfind_Info', 'Vehicle Part Wear:')
 			dump(wearInfo)
 		end
-	--end)
-	--if not success then
-	--	log('E', 'Barnfind_Error', 'A vehicle error has occured: '..err)
-	--end
+	end)
+	if not success then
+		log('E', 'Barnfind_Error', 'A vehicle error has occured: '..err)
+	end
 end
 
 local function resetBarnfind()
