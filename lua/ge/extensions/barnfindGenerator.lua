@@ -5,7 +5,7 @@
 local M = {}
 
 local function spawnBarnfind(genConfig)
-	log('I', 'barnfindGenerator', 'Generating barnfind...')
+	log('I', 'Barnfind_State', 'Generating barnfind...')
 	local success,err = pcall(function()
 		-- setup configs and other variables
 		local conf_maxYear = genConfig.MaxYear or -1
@@ -16,6 +16,10 @@ local function spawnBarnfind(genConfig)
 		local conf_minDistance = genConfig.MinDist or 100000 -- doesnt work due to a coding mistake in the beamng parking script
 		local conf_showDistance = genConfig.ShowDist or true
 		local conf_showStateReport = genConfig.ShowState or true
+		local conf_wearVariation = genConfig.WearVar or (.1 + math.random() * .35)
+		local conf_condOverride = genConfig.Override or {}
+		local conf_balanceWear = genConfig.Balance or true
+		local conf_randomSeed = genConfig.Seed or os.time()
 		
 		local allCars = core_vehicles.getVehicleList().vehicles 
 		local carModel 
@@ -97,14 +101,15 @@ local function spawnBarnfind(genConfig)
 		end 
 		
 		-- find a random parking spot to spawn the vehicle
+		local allParks = gameplay_parking.getParkingSpots() -- this function makes sure parking sites are loaded before being returned
 		local parkingSpots = gameplay_parking.findParkingSpots(be:getPlayerVehicle(0):getPosition(), conf_minDistance, conf_maxDistance) 
 		local parkingSpotNames = tableKeys(parkingSpots) 
 
 		local parkingSpotName = parkingSpotNames[math.random(tableSize(parkingSpotNames))] 
 		local park = parkingSpots[parkingSpotName]
 		
-		if park == nil then
-			error("No parking location could be found. Either your Max distance Config is too low or this map doesn't have parking support.")
+		if not park then
+			error("No parking location could be found. Either your Max/Min distance Config needs tweaking or this map doesn't have parking support.")
 		end
 		
 		local approxDistance = math.floor(math.sqrt(park.squaredDistance))
@@ -117,21 +122,29 @@ local function spawnBarnfind(genConfig)
 		be:enterNextVehicle(0, 1) 
 		
 		gameplay_parking.moveToParkingSpot(car:getId(), park.ps, true)
-		car:queueLuaCommand("extensions.barnfindGenerator.setupBarnfind("..tostring(conf_mileage)..","..tostring(conf_condition)..","..tostring(conf_showStateReport)..")") 
+		spawn.safeTeleport(car, car:getPosition(), car:getRotation())
+		
+		local stringTable = "{"
+		for i,v in pairs(conf_condOverride) do
+			stringTable = stringTable..i.." = "..v..", "
+		end
+		stringTable = stringTable.."test = nil}"
+		
+		car:queueLuaCommand("local condOverride = "..stringTable.." extensions.barnfindGenerator.setupBarnfind("..tostring(conf_mileage)..","..tostring(conf_mileage)..","..tostring(conf_condition)..","..tostring(conf_wearVariation)..","..tostring(conf_showStateReport)..",condOverride,"..tostring(conf_balanceWear)..", true)") 
 		
 		-- show the vehicle info on the console
 		if conf_showInfo then
 			for a,b in pairs(carInfo) do
-				log('O', 'barnfindGenerator', tostring(a)..": "..tostring(b))
+				log('O', 'Barnfind_Info', tostring(a)..": "..tostring(b))
 			end
 		end
 	end)
 	
 	-- protected call result
 	if success then
-		log('I', '', 'Execution Complete!')
+		log('I', 'Barnfind_State', 'Execution Complete!')
 	else
-		log('E', '', 'Execution Failed: '..err)
+		log('E', 'Barnfind_Error', 'Execution Failed: '..err)
 	end
 end
 
