@@ -12,14 +12,13 @@ local function spawnBarnfind(genConfig)
 		local conf_showInfo = genConfig.ShowInfo or true
 		local conf_condition = genConfig.Condition or math.random()
 		local conf_mileage = genConfig.Mileage or math.random(0,500000000)
-		local conf_maxDistance = genConfig.MaxDist or 10000000000
-		local conf_minDistance = genConfig.MinDist or 100000 -- doesnt work due to a coding mistake in the beamng parking script
 		local conf_showDistance = genConfig.ShowDist or true
 		local conf_showStateReport = genConfig.ShowState or true
 		local conf_wearVariation = genConfig.WearVar or (.1 + math.random() * .35)
 		local conf_condOverride = genConfig.Override or {}
 		local conf_balanceWear = genConfig.Balance or true
 		local conf_randomSeed = genConfig.Seed or os.time()
+		local conf_chancePark = genConfig.ParkChance or .2
 		
 		local allCars = core_vehicles.getVehicleList().vehicles 
 		local carModel 
@@ -101,27 +100,56 @@ local function spawnBarnfind(genConfig)
 		end 
 		
 		-- find a random parking spot to spawn the vehicle
-		local allParks = gameplay_parking.getParkingSpots() -- this function makes sure parking sites are loaded before being returned
-		local parkingSpots = gameplay_parking.findParkingSpots(be:getPlayerVehicle(0):getPosition(), conf_minDistance, conf_maxDistance) 
-		local parkingSpotNames = tableKeys(parkingSpots) 
+		local park
+		local road
+		if math.random() < conf_chancePark then
+			local allParks = gameplay_parking.getParkingSpots() -- this function makes sure parking sites are loaded before being returned
+			local parkingSpots = gameplay_parking.findParkingSpots(be:getPlayerVehicle(0):getPosition(), 10000, 10000000000) 
+			local parkingSpotNames = tableKeys(parkingSpots) 
 
-		local parkingSpotName = parkingSpotNames[math.random(tableSize(parkingSpotNames))] 
-		local park = parkingSpots[parkingSpotName]
-		
-		if not park then
-			error("No parking location could be found. Either your Max/Min distance Config needs tweaking or this map doesn't have parking support.")
+			local parkingSpotName = parkingSpotNames[math.random(tableSize(parkingSpotNames))] 
+			park = parkingSpots[parkingSpotName]
 		end
 		
-		local approxDistance = math.floor(math.sqrt(park.squaredDistance))
-		if conf_showDistance then
-			carInfo['Distance'] = tostring(approxDistance).." m"
+		if park then
+			local approxDistance = math.floor(math.sqrt(park.squaredDistance))
+			if conf_showDistance then
+				carInfo['Distance'] = tostring(approxDistance).." m"
+			end
+		else
+			-- if not, find a random road to spawn the vehicle instead
+			local pathNodes = tableSize(map.getMap().nodes)
+			if pathNodes > 0 then
+				local selRoad = math.random(1,pathNodes)
+				local ind = 1
+				for a,b in pairs(map.getMap().nodes) do
+					if ind == selRoad then
+						road = b
+						local approxDistance = math.floor(math.sqrt(b.pos:squaredDistance(be:getPlayerVehicle(0):getPosition())))
+						if conf_showDistance then
+							carInfo['Distance'] = tostring(approxDistance).." m"
+						end
+						
+						break
+					end
+					ind = ind + 1
+				end
+			else
+				error("No available locations could be found to spawn the vehicle. You might need to use a different map.")
+			end
 		end
-		
+
 		-- spawn the vehicle at the selected parking spot & setup the rest
 		local car = core_vehicles.spawnNewVehicle(carModel, {config = carConfig, paint = paintColor}) 
 		be:enterNextVehicle(0, 1) 
 		
-		gameplay_parking.moveToParkingSpot(car:getId(), park.ps, true)
+		if park then
+			gameplay_parking.moveToParkingSpot(car:getId(), park.ps, true)
+		else
+			car:setPosition(road.pos + vec3(0,0,.5))
+			car:queueLuaCommand("electrics.setIgnitionLevel(0)")
+		end
+		
 		spawn.safeTeleport(car, car:getPosition(), car:getRotation())
 		
 		local stringTable = "{"
