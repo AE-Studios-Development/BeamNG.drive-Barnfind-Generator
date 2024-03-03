@@ -198,7 +198,7 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 				Tur.setPartCondition(totalMileage, {damageFrictionCoef = finalWear_Turbine, damageExhaustPowerCoef = wear_TurboCompressor})
 				local _,reqInfo = Tur.getPartCondition()
 				wearInfo["Turbocharger"] = {
-					["Turbine"] = tostring(math.floor(101 - (reqInfo.damageFrictionCoef * linearScale(mileage, 30000000, 1000000000, 1, 2)))).." %",
+					["Turbine"] = tostring(math.floor(101 - (reqInfo.damageFrictionCoef * linearScale(miles, 30000000, 1000000000, 1, 2)))).." %",
 					["Compressor"] = tostring(math.floor(reqInfo.damageExhaustPowerCoef * 100)).." %" 
 				}
 			end

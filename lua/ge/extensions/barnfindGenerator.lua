@@ -4,19 +4,28 @@
 
 local M = {}
 
+local function configBool(val,def)
+	if type(val) == "boolean" then
+		return val
+	else
+		return def
+	end
+end
+
 local function spawnBarnfind(genConfig)
 	log('I', 'Barnfind_State', 'Generating barnfind...')
 	local success,err = pcall(function()
 		-- setup configs and other variables
 		local conf_maxYear = genConfig.MaxYear or -1
-		local conf_showInfo = genConfig.ShowInfo or true
+		local conf_showInfo = configBool(genConfig.ShowInfo,true)
 		local conf_condition = genConfig.Condition or math.random()
-		local conf_mileage = genConfig.Mileage or math.random(0,500000000)
-		local conf_showDistance = genConfig.ShowDist or true
-		local conf_showStateReport = genConfig.ShowState or true
+		local conf_mileage = genConfig.Mileage or math.random(0,500000)
+		local conf_showDistance = configBool(genConfig.ShowDist,true)
+		local conf_showStateReport = configBool(genConfig.ShowState,true)
 		local conf_wearVariation = genConfig.WearVar or (.1 + math.random() * .35)
 		local conf_condOverride = genConfig.Override or {}
-		local conf_balanceWear = genConfig.Balance or true
+		local conf_balanceWear = configBool(genConfig.Balance,true)
+		local conf_usePopulation = configBool(genConfig.UsePopulation,true)
 		local conf_randomSeed = genConfig.Seed or os.time()
 		local conf_chancePark = genConfig.ParkChance or .2
 		
@@ -27,20 +36,27 @@ local function spawnBarnfind(genConfig)
 		local paintName
 		local carInfo = {}
 		
-		-- get combined car population of all vehicles
+		-- get combined car population of all vehicles OR every configs
 		local maxPop = 0 
+		local possibleCars = {}
 		for a,b in pairs(allCars) do 
 			if (conf_maxYear == -1 or (b.model.Years and b.model.Years.min <= conf_maxYear)) and (b.model.Type == "Car" or b.model.Type == "Truck") then 
 				for c,d in pairs(b.configs) do 
-					if d.Population and not (d.Type and string.find(d.Type,"Prop")) then 
-						maxPop = maxPop + d.Population 
+					if not (d.Type and string.find(d.Type,"Prop")) then 
+						if conf_usePopulation then
+							if d.Population then
+								maxPop = maxPop + d.Population 
+							end
+						else
+							table.insert(possibleCars,d)
+						end
 					end 
 				end 
 			end 
 		end 
-		
+
 		-- roll a random car to select depending on how populated it is
-		local rngPop = math.random(1, maxPop) 
+		local rngPop = conf_usePopulation and math.random(1, maxPop) or possibleCars[math.random(1,#possibleCars)]
 		local carFound = false 
 		local attempts = 0
 		
@@ -49,10 +65,19 @@ local function spawnBarnfind(genConfig)
 				if (conf_maxYear == -1 or (b.model.Years and b.model.Years.min <= conf_maxYear)) and (b.model.Type == "Car" or b.model.Type == "Truck") then 
 					for c,d in pairs(b.configs) do 
 						
-						-- make sure it fits the max year config, that it has a population value and it isn't a simplified traffic car
-						if d.Population and not (d.Type and string.find(d.Type,"Prop")) then 
-							rngPop = rngPop - d.Population 
-							if rngPop <= 0 then 
+						-- make sure it fits the max year config, that it has a population value (if requested) and it isn't a simplified traffic car
+						if not (d.Type and string.find(d.Type,"Prop")) then 
+							local chosenVehicle = false
+							if conf_usePopulation then
+								if d.Population then
+									rngPop = rngPop - d.Population 
+									chosenVehicle = (rngPop <= 0)
+								end
+							else
+								chosenVehicle = (rngPop == d)
+							end
+							
+							if chosenVehicle then
 								carModel = b.model.key 
 								carConfig = c 
 								
@@ -70,20 +95,20 @@ local function spawnBarnfind(genConfig)
 										break 
 									end 
 								end 
-
+								
 								-- gather vehicle info
 								carInfo = {Vehicle = (b.model.Brand or "").." "..b.model.Name,
 								Variant = d.Configuration or "N/A",
 								Year = (years and math.random(years.min,years.max) or "N/A"),
 								Color = paintName or "N/A",
-								Population = d.Population,
-								Value = d.Value or "N/A",
-								Mileage = tostring(math.floor(conf_mileage / 1000)).." km",
+								Population = d.Population or "N/A",
+								Value = d.Value and "$ "..tostring(d.Value) or "N/A",
+								Mileage = tostring(math.floor(conf_mileage)).." km",
 								Condition = tostring(math.floor(conf_condition * 100)).." %"}
-								
+									
 								carFound = true 
-								break 
-							end 
+								break
+							end
 						end 
 						if carFound then break end 
 					end 
@@ -158,7 +183,8 @@ local function spawnBarnfind(genConfig)
 		end
 		stringTable = stringTable.."test = nil}"
 		
-		car:queueLuaCommand("local condOverride = "..stringTable.." extensions.barnfindGenerator.setupBarnfind("..tostring(conf_mileage)..","..tostring(conf_mileage)..","..tostring(conf_condition)..","..tostring(conf_wearVariation)..","..tostring(conf_showStateReport)..",condOverride,"..tostring(conf_balanceWear)..", true)") 
+		print(genConfig.ShowState)
+		car:queueLuaCommand("local condOverride = "..stringTable.." extensions.barnfindGenerator.setupBarnfind("..tostring(conf_randomSeed)..","..tostring(conf_mileage * 500000)..","..tostring(conf_condition)..","..tostring(conf_wearVariation)..","..tostring(conf_showStateReport)..",condOverride,"..tostring(conf_balanceWear)..", true)") 
 		
 		-- show the vehicle info on the console
 		if conf_showInfo then
