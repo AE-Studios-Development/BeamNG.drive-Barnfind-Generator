@@ -258,6 +258,17 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 				wearInfo["Gearbox"] = tostring(math.floor(Grb.damageLockTorqueCoef * Grb.wearLockTorqueCoef * 100)).." %"
 			end
 		end
+		
+		-- nerf friction wear
+		for a,b in pairs(powertrain.getDevices()) do 
+			if a ~= "turbocharger" then 
+				for c,d in pairs(b) do 
+					if c == "wearFrictionCoef" or c == "damageFrictionCoef" then 
+						b[c] = math.max(1 + ((d - 1) * .25),1) 
+					end 
+				end 
+			end 
+		end 
 
 		-- display vehicle state if requested
 		if showState then
