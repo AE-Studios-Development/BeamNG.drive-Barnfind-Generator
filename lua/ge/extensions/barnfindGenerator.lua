@@ -4,6 +4,10 @@
 
 local M = {}
 
+local spawnSeed
+local wearSeed
+local lastConfig
+
 local function configBool(val,def)
 	if type(val) == "boolean" then
 		return val
@@ -15,6 +19,13 @@ end
 local function spawnBarnfind(genConfig)
 	log('I', 'Barnfind_State', 'Generating barnfind...')
 	local success,err = pcall(function()
+		-- remember configs and setup rng seed
+		local globalSeed = os.time()
+		spawnSeed = genConfig.Seed or globalSeed
+		wearSeed = genConfig.WearSeed or globalSeed
+		lastConfig = genConfig
+		
+		math.randomseed(spawnSeed)
 		-- setup configs and other variables
 		local conf_maxYear = genConfig.MaxYear or -1
 		local conf_showInfo = configBool(genConfig.ShowInfo,true)
@@ -26,7 +37,8 @@ local function spawnBarnfind(genConfig)
 		local conf_condOverride = genConfig.Override or {}
 		local conf_balanceWear = configBool(genConfig.Balance,true)
 		local conf_usePopulation = configBool(genConfig.UsePopulation,true)
-		local conf_randomSeed = genConfig.Seed or os.time()
+		local conf_WearRandomSeed = genConfig.WearSeed or globalseed
+		local conf_SpawnRandomSeed = genConfig.Seed or globalseed
 		local conf_chancePark = genConfig.ParkChance or .2
 		
 		local allCars = core_vehicles.getVehicleList().vehicles 
@@ -154,7 +166,6 @@ local function spawnBarnfind(genConfig)
 						if conf_showDistance then
 							carInfo['Distance'] = tostring(approxDistance).." m"
 						end
-						
 						break
 					end
 					ind = ind + 1
@@ -171,7 +182,10 @@ local function spawnBarnfind(genConfig)
 		if park then
 			gameplay_parking.moveToParkingSpot(car:getId(), park.ps, true)
 		else
-			car:setPosition(road.pos + vec3(0,0,.5))
+			local vec = road.pos + vec3(0,0,.5)
+			local qua = quatFromEuler(0, 0, math.random() * 360)
+			car:setPosRot(vec.x, vec.y, vec.z, qua.x, qua.y, qua.z, qua.w)
+			
 			car:queueLuaCommand("electrics.setIgnitionLevel(0)")
 		end
 		
@@ -183,8 +197,7 @@ local function spawnBarnfind(genConfig)
 		end
 		stringTable = stringTable.."test = nil}"
 		
-		print(genConfig.ShowState)
-		car:queueLuaCommand("local condOverride = "..stringTable.." extensions.barnfindGenerator.setupBarnfind("..tostring(conf_randomSeed)..","..tostring(conf_mileage * 500000)..","..tostring(conf_condition)..","..tostring(conf_wearVariation)..","..tostring(conf_showStateReport)..",condOverride,"..tostring(conf_balanceWear)..", true)") 
+		car:queueLuaCommand("local condOverride = "..stringTable.." extensions.barnfindGenerator.setupBarnfind("..tostring(wearSeed)..","..tostring(conf_mileage * 500000)..","..tostring(conf_condition)..","..tostring(conf_wearVariation)..","..tostring(conf_showStateReport)..",condOverride,"..tostring(conf_balanceWear)..", true)") 
 		
 		-- show the vehicle info on the console
 		if conf_showInfo then
@@ -202,6 +215,18 @@ local function spawnBarnfind(genConfig)
 	end
 end
 
+local function respawnPrev()
+	if lastConfig then
+		lastConfig["Seed"] = spawnSeed
+		lastConfig["WearSeed"] = wearSeed
+		
+		spawnBarnfind(lastConfig)
+	else
+		log('E', 'Barnfind_Error', 'There was no junk car generation made previously.')
+	end
+end
+
+M.respawnPrev = respawnPrev
 M.spawnBarnfind = spawnBarnfind
 
 return M
