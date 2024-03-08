@@ -1,7 +1,5 @@
 -- === GE
 
--- psa: this code's organization sucks as much as beamNG's lua documentation does. will improve later.
-
 local M = {}
 
 local spawnSeed
@@ -96,17 +94,11 @@ local function spawnBarnfind(genConfig)
 								local years = d.Years or b.model.Years or nil
 								-- randomize their paint with available factory colors
 								local allPaints = b.model.paints 
-								local paintRng = math.random(1, tableSize(allPaints)) 
-								local paintCount = 0 
+								local paintRng = math.random(1, tableSize(allPaints))  
 								
-								for e,f in pairs(allPaints) do 
-									paintCount = paintCount + 1 
-									if paintCount == paintRng then 
-										paintColor = f 
-										paintName = e
-										break 
-									end 
-								end 
+								local allPaintsKeys = tableKeys(allPaints)
+								paintName = allPaintsKeys[paintRng]
+								paintColor = allPaints[paintName]
 								
 								-- gather vehicle info
 								carInfo = {Vehicle = (b.model.Brand or "").." "..b.model.Name,
@@ -155,20 +147,19 @@ local function spawnBarnfind(genConfig)
 			end
 		else
 			-- if not, find a random road to spawn the vehicle instead
-			local pathNodes = tableSize(map.getMap().nodes)
+			local allNodes = map.getMap().nodes
+			local pathNodes = tableSize(allNodes)
+			
 			if pathNodes > 0 then
 				local selRoad = math.random(1,pathNodes)
-				local ind = 1
-				for a,b in pairs(map.getMap().nodes) do
-					if ind == selRoad then
-						road = b
-						local approxDistance = math.floor(math.sqrt(b.pos:squaredDistance(be:getPlayerVehicle(0):getPosition())))
-						if conf_showDistance then
-							carInfo['Distance'] = tostring(approxDistance).." m"
-						end
-						break
-					end
-					ind = ind + 1
+				local allNodesKeys = tableKeys(allNodes)
+				
+				local roadName = allNodesKeys[selRoad]
+				road = allNodes[roadName]
+				
+				local approxDistance = math.floor(math.sqrt(road.pos:squaredDistance(be:getPlayerVehicle(0):getPosition())))
+				if conf_showDistance then
+					carInfo['Distance'] = tostring(approxDistance).." m"
 				end
 			else
 				error("No available locations could be found to spawn the vehicle. You might need to use a different map.")
@@ -192,12 +183,12 @@ local function spawnBarnfind(genConfig)
 		spawn.safeTeleport(car, car:getPosition(), car:getRotation())
 		
 		local stringTable = "{"
-		for i,v in pairs(conf_condOverride) do
-			stringTable = stringTable..i.." = "..v..", "
+		for a,b in pairs(conf_condOverride) do
+			stringTable = stringTable..a.." = "..b..", "
 		end
-		stringTable = stringTable.."test = nil}"
+		stringTable = stringTable.."_ = nil}"
 		
-		car:queueLuaCommand("local condOverride = "..stringTable.." extensions.barnfindGenerator.setupBarnfind("..tostring(wearSeed)..","..tostring(conf_mileage * 500000)..","..tostring(conf_condition)..","..tostring(conf_wearVariation)..","..tostring(conf_showStateReport)..",condOverride,"..tostring(conf_balanceWear)..", true)") 
+		car:queueLuaCommand("local condOverride = "..stringTable.." extensions.barnfindGenerator.setupBarnfind("..tostring(wearSeed)..","..tostring(conf_mileage * 1000)..","..tostring(conf_condition)..","..tostring(conf_wearVariation)..","..tostring(conf_showStateReport)..",condOverride,"..tostring(conf_balanceWear)..", true)") 
 		
 		-- show the vehicle info on the console
 		if conf_showInfo then
