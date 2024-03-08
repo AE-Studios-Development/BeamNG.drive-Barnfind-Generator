@@ -63,7 +63,7 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		
 		-- balance the parts condition if requested
 		local finalWear_Suspension = balanceWear and clamp(50 ^(2.2 * (1 - wear_Suspension) - 2.25) - .001, 0, .8) or 1 - wear_Suspension
- 		local finalWear_Crankshaft = balanceWear and math.max(.98 + 50^(2 * (1 - wear_Crankshaft) - 1), 1) or 1 + (1 - wear_Crankshaft) * 50
+ 		local finalWear_Crankshaft = balanceWear and math.max(.98 + 50^(2 * (1 - wear_Crankshaft) - 1), 1) or 1 + (1 - wear_Crankshaft) * 33
 		local finalWear_FuelPump = balanceWear and clamp(100 ^((1 - wear_FuelPump) - 1) - .01, 0, 1) or 1 - wear_FuelPump
 		local finalWear_SparkPlugs = balanceWear and clamp(100 ^((1 - wear_Sparkplugs) - 1) - .01, 0, 1) or 1 - wear_Sparkplugs
 		local finalWear_Turbine = balanceWear and 1 + 10^(7 * (1 - wear_TurboTurbine) - 4) or 1 + (1 - wear_TurboTurbine) * 100
@@ -71,13 +71,34 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		-- natural condition setup
 		local _,reqInfo = Thr.getPartConditionRadiator() -- this is placed before initConditions to prevent a bug
 		
+		local exhaustBeams = {}
+		local suspensionBeams = {}
+		local panelBeams = {}
+		for a,b in pairs(v.data.beams) do -- this is here for performance
+			if b.isExhaust then
+				table.insert(exhaustBeams,b.cid)
+			elseif string.find(b.partOrigin,"leaf") or string.find(b.partOrigin,"coilover") or string.find(b.partOrigin,"strut") or string.find(b.partOrigin,"shock") or string.find(b.partOrigin,"spring") then
+				table.insert(suspensionBeams,b.cid)
+			elseif b.breakGroup ~= nil and type(b.breakGroup) ~= "table" and not string.find(b.breakGroup,"wheel") and not string.find(b.breakGroup,"fueltank") and not string.find(b.breakGroup,"transmissionmount") and not string.find(b.breakGroup,"driveshaft") and not string.find(b.breakGroup,"enginemount") then
+				table.insert(panelBeams,b.cid)
+			end
+		end
+			
 		if firstTime then
 			partCondition.initConditions(nil, totalMileage, genCondition, wear_Paint)
 		end
 		
 		-- apply chassis and body part wear
 		-- PANELS
-		-- wip
+		local beamNum = #panelBeams
+		local dam = 0
+		while dam < (500 ^(-wear_Panels)) do 
+			local rng = math.random(1,#panelBeams) 
+			local selB = panelBeams[rng] 
+			obj:breakBeam(selB)
+			table.remove(panelBeams,rng) 
+			dam = dam + (1 / beamNum) 
+		end 
 		
 		-- TIRES
 		local flatTires = math.floor((1 - wear_Tires) * #v.data.wheels)
@@ -89,29 +110,20 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		wheels.scaleBrakeTorque(wear_Brakes)
 		
 		-- SUSPENSIONS
-		local p = {} 
-		for a,b in pairs(v.data.beams) do  
-			for c,d in pairs({"leaf","coilover","strut","shock","spring"}) do 
-				if string.find(b["partOrigin"],d) then 
-					table.insert(p,b.cid)
-				end 
-			end 
-		end 
-
-		local beamNum = #p 
+		local beamNum = #suspensionBeams 
 		local dam = 0 
 		while dam < finalWear_Suspension do 
-			local rng = math.random(1,#p) 
-			local selB = p[rng] 
+			local rng = math.random(1,#suspensionBeams) 
+			local selB = suspensionBeams[rng] 
 			obj:breakBeam(selB) 
-			table.remove(p,rng) 
+			table.remove(suspensionBeams,rng) 
 			dam = dam + (1 / beamNum) 
 		end 
 		
 		-- gather part wear info
 		wearInfo["Body"] = {
 			["Paint"] = tostring(math.floor(wear_Paint * 100)).." %",
-			["Panels"] = nil
+			["Panels"] = tostring(math.floor(wear_Panels * 100)).." %"
 		}
 		
 		wearInfo["Chassis"] = {
@@ -123,18 +135,13 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		-- apply mechanical and powertrain part wear
 		if Eng then
 			-- EXHAUST
-			if wear_Exhaust < .6 then
-				local dam = 0 
-				local maxDam = math.ceil(6 - (wear_Exhaust * 10))
-				for a,b in pairs(v.data.beams) do 
-					if b.isExhaust then 
-						obj:breakBeam(b.cid) 
-						dam = dam + 1 
-						if dam > maxDam then 
-							break 
-						end 
-					end 
-				end
+			local dam = 0 
+			while dam < math.ceil(6 - (wear_Exhaust * 10)) do
+				local rng = math.random(1,#exhaustBeams) 
+				local selB = exhaustBeams[rng]
+				obj:breakBeam(selB)
+				table.remove(exhaustBeams,rng)
+				dam = dam + 1 
 			end
 		
 			-- HEAD GASKET + PISTON RINGS + CONNECTING RODS
@@ -161,16 +168,16 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 			
 			-- ENGINE
 			Eng.damageDynamicFrictionCoef = finalWear_Crankshaft
-			Eng.damageIdleAVReadErrorRangeCoef = math.max(30 - (wear_IdleController * 30), 1)
+			Eng.damageIdleAVReadErrorRangeCoef = math.max(15 - (wear_IdleController * 15), 1)
 			Eng.fastIgnitionErrorChance = finalWear_FuelPump
 			Eng.slowIgnitionErrorChance = finalWear_SparkPlugs
 
-			Eng.wearIdleAVReadErrorRangeCoef = linearScale(totalMileage, 30000000, 1000000000, 1, 5) -- nerf the idle controller wear from mileage
+			Eng.wearIdleAVReadErrorRangeCoef = linearScale(totalMileage, 50000000, 1000000000, 1, 5) -- nerf the idle controller wear from mileage
 
 			-- gather main engine wear info
 			wearInfo["Engine"] = {
 				["Crankshaft"] = tostring(math.max(math.floor(103 - (Eng.damageDynamicFrictionCoef * Eng.wearDynamicFrictionCoef * 3)), 0)).." %",
-				["Idle_Controller"] = tostring(math.max(math.floor(102 - (Eng.damageIdleAVReadErrorRangeCoef * Eng.wearIdleAVReadErrorRangeCoef * 2)), 0)).." %",
+				["Idle_Controller"] = tostring(math.max(math.floor(102.5 - (Eng.damageIdleAVReadErrorRangeCoef * Eng.wearIdleAVReadErrorRangeCoef * 2.5)), 0)).." %",
 				["Fuel_Pump"] = tostring(math.floor(100 - (Eng.fastIgnitionErrorChance * 100))).." %",
 				["Spark_Plugs"] = tostring(math.floor(100 - (Eng.slowIgnitionErrorChance * 100))).." %",
 				["Head_Gasket"] = Thr.headGasketBlown and "Bad" or "Good",
@@ -198,7 +205,7 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 				Tur.setPartCondition(totalMileage, {damageFrictionCoef = finalWear_Turbine, damageExhaustPowerCoef = wear_TurboCompressor})
 				local _,reqInfo = Tur.getPartCondition()
 				wearInfo["Turbocharger"] = {
-					["Turbine"] = tostring(math.floor(101 - (reqInfo.damageFrictionCoef * linearScale(miles, 30000000, 1000000000, 1, 2)))).." %",
+					["Turbine"] = tostring(math.floor(101 - (reqInfo.damageFrictionCoef * linearScale(totalMileage, 30000000, 1000000000, 1, 2)))).." %",
 					["Compressor"] = tostring(math.floor(reqInfo.damageExhaustPowerCoef * 100)).." %" 
 				}
 			end
@@ -225,22 +232,22 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		-- CLUTCH
 		if Clt then
 			Clt.clutchPermanentlyDamaged = wear_ClutchSprings < .25
-			Clt.damageClutchFreePlayCoef = math.max(30 - (wear_ClutchPressurePlate * 30), 1)
+			Clt.damageClutchFreePlayCoef = math.max(15 - (wear_ClutchPressurePlate * 15), 1)
 			Clt.damageLockTorqueCoef = Clt.damageLockTorqueCoef
 
-			Clt.wearClutchFreePlayCoef = linearScale(totalMileage, 25000000, 1000000000, 1, 5) -- nerf the clutch pressure plate wear from mileage
+			Clt.wearClutchFreePlayCoef = linearScale(totalMileage, 30000000, 1000000000, 1, 5) -- nerf the clutch pressure plate wear from mileage
 
 			wearInfo["Clutch"] = {
 				["Springs"] = Clt.clutchPermanentlyDamaged and "Bad" or "Good",
 				["Disc"] = tostring(math.floor(Clt.damageLockTorqueCoef * Clt.wearLockTorqueCoef * 100)).." %",
-				["Pressure_Plate"] = tostring(math.max(math.floor(102 - (Clt.damageClutchFreePlayCoef * Clt.wearClutchFreePlayCoef * 2)), 0)).." %"
+				["Pressure_Plate"] = tostring(math.max(math.floor(102.5 - (Clt.damageClutchFreePlayCoef * Clt.wearClutchFreePlayCoef * 2.5)), 0)).." %"
 			}
 		end
 		
 		-- GEARBOX
 		if Grb then
 			if Grb.type == "manualGearbox" then
-				local dam = math.floor((1 - (wear_Gearbox * 1.5)) * #Grb.gearRatios)
+				local dam = math.floor(250 ^(wear_Gearbox - 1) * #Grb.gearRatios)
 				for i = 1,dam do
 					local selGear = 0 
 					while selGear == 0 do 
