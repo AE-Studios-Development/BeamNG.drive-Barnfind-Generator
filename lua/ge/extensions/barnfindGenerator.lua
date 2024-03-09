@@ -2,10 +2,12 @@
 
 local M = {}
 
+-- memory variables
 local spawnSeed
 local wearSeed
 local lastConfig
 
+-- cleanup functions
 local function configBool(val,def)
 	if type(val) == "boolean" then
 		return val
@@ -14,6 +16,7 @@ local function configBool(val,def)
 	end
 end
 
+-- main function
 local function spawnBarnfind(genConfig)
 	log('I', 'Barnfind_State', 'Generating barnfind...')
 	local success,err = pcall(function()
@@ -40,10 +43,7 @@ local function spawnBarnfind(genConfig)
 		local conf_chancePark = genConfig.ParkChance or .2
 		
 		local allCars = core_vehicles.getVehicleList().vehicles 
-		local carModel 
-		local carConfig 
-		local paintColor 
-		local paintName
+		local carModel, carConfig, paintColor, paintName
 		local carInfo = {}
 		
 		-- get combined car population of all vehicles OR every configs
@@ -55,10 +55,11 @@ local function spawnBarnfind(genConfig)
 					if not (d.Type and string.find(d.Type,"Prop")) then 
 						if conf_usePopulation then
 							if d.Population then
+								possibleCars[c] = {b,d}
 								maxPop = maxPop + d.Population 
 							end
 						else
-							table.insert(possibleCars,d)
+							possibleCars[c] = {b,d}
 						end
 					end 
 				end 
@@ -66,78 +67,61 @@ local function spawnBarnfind(genConfig)
 		end 
 
 		-- roll a random car to select depending on how populated it is
-		local rngPop = conf_usePopulation and math.random(1, maxPop) or possibleCars[math.random(1,#possibleCars)]
-		local carFound = false 
-		local attempts = 0
-		
-		while carFound == false do
-			for a,b in pairs(allCars) do 
-				if (conf_maxYear == -1 or (b.model.Years and b.model.Years.min <= conf_maxYear)) and (b.model.Type == "Car" or b.model.Type == "Truck") then 
-					for c,d in pairs(b.configs) do 
-						
-						-- make sure it fits the max year config, that it has a population value (if requested) and it isn't a simplified traffic car
-						if not (d.Type and string.find(d.Type,"Prop")) then 
-							local chosenVehicle = false
-							if conf_usePopulation then
-								if d.Population then
-									rngPop = rngPop - d.Population 
-									chosenVehicle = (rngPop <= 0)
-								end
-							else
-								chosenVehicle = (rngPop == d)
-							end
-							
-							if chosenVehicle then
-								carModel = b.model.key 
-								carConfig = c 
-								
-								local years = d.Years or b.model.Years or nil
-								-- randomize their paint with available factory colors
-								local allPaints = b.model.paints 
-								local paintRng = math.random(1, tableSize(allPaints))  
-								
-								local allPaintsKeys = tableKeys(allPaints)
-								paintName = allPaintsKeys[paintRng]
-								paintColor = allPaints[paintName]
-								
-								-- gather vehicle info
-								carInfo = {Vehicle = (b.model.Brand or "").." "..b.model.Name,
-								Variant = d.Configuration or "N/A",
-								Year = (years and math.random(years.min,years.max) or "N/A"),
-								Color = paintName or "N/A",
-								Population = d.Population or "N/A",
-								Value = d.Value and "$ "..tostring(d.Value) or "N/A",
-								Mileage = tostring(math.floor(conf_mileage)).." km",
-								Condition = tostring(math.floor(conf_condition * 100)).." %"}
-									
-								carFound = true 
-								break
-							end
-						end 
-						if carFound then break end 
-					end 
-				end 
-				if carFound then break end 
-			end
-			
-			if not carFound then
-				attempts = attempts + 1
-				if attempts > 20 then
-					error("Could not select a vehicle. Your Max Year Config might be too low.")
+		local carName, carData
+		if conf_usePopulation then
+			local numLeft = math.random(1, maxPop)
+			while not carData do
+				for a,b in pairs(possibleCars) do
+					numLeft = numLeft - b[2].Population
+					if numLeft <= 0 then
+						carName = a
+						carData = b
+						break
+					end
 				end
 			end
-		end 
+		else
+			local carRng = math.random(1, tableSize(possibleCars))  
+			local carKeys = tableKeys(possibleCars)
+			carName = carKeys[carRng]
+			carData = possibleCars[carName]
+		end
+		
+		local modelData = carData[1].model
+		local variantData = carData[2]
+								
+		local years = variantData.Years or modelData.Years or nil
+		-- randomize their paint with available factory colors
+		local allPaints = modelData.paints 
+		local paintRng = math.random(1, tableSize(allPaints))  
+		
+		local allPaintsKeys = tableKeys(allPaints)
+		paintName = allPaintsKeys[paintRng]
+		paintColor = allPaints[paintName]
+								
+		-- gather vehicle info
+		carInfo = {Vehicle = (modelData.Brand or "").." "..modelData.Name,
+		Variant = variantData.Configuration or "N/A",
+		Year = (years and math.random(years.min,years.max) or "N/A"),
+		Color = paintName or "N/A",
+		Population = variantData.Population or "N/A",
+		Value = variantData.Value and "$ "..tostring(variantData.Value) or "N/A",
+		Mileage = tostring(math.floor(conf_mileage)).." km",
+		Condition = tostring(math.floor(conf_condition * 100)).." %"}
 		
 		-- find a random parking spot to spawn the vehicle
-		local park
-		local road
+		local park, road
 		if math.random() < conf_chancePark then
 			local allParks = gameplay_parking.getParkingSpots() -- this function makes sure parking sites are loaded before being returned
-			local parkingSpots = gameplay_parking.findParkingSpots(be:getPlayerVehicle(0):getPosition(), 10000, 10000000000) 
+			local parkingSpots = gameplay_parking.findParkingSpots(nil, nil, 10000000000) 
 			local parkingSpotNames = tableKeys(parkingSpots) 
 
 			local parkingSpotName = parkingSpotNames[math.random(tableSize(parkingSpotNames))] 
 			park = parkingSpots[parkingSpotName]
+			
+			if not park then
+				log('W', 'Barnfind_Warning', "This map doesn't have any parking spots, spawning vehicle on a road instead...")
+			end
 		end
 		
 		if park then
@@ -157,7 +141,7 @@ local function spawnBarnfind(genConfig)
 				local roadName = allNodesKeys[selRoad]
 				road = allNodes[roadName]
 				
-				local approxDistance = math.floor(math.sqrt(road.pos:squaredDistance(be:getPlayerVehicle(0):getPosition())))
+				local approxDistance = math.floor(math.sqrt(road.pos:squaredDistance(core_camera.getPosition())))
 				if conf_showDistance then
 					carInfo['Distance'] = tostring(approxDistance).." m"
 				end
@@ -167,7 +151,7 @@ local function spawnBarnfind(genConfig)
 		end
 
 		-- spawn the vehicle at the selected parking spot & setup the rest
-		local car = core_vehicles.spawnNewVehicle(carModel, {config = carConfig, paint = paintColor}) 
+		local car = core_vehicles.spawnNewVehicle(modelData.key, {config = carName, paint = paintColor}) 
 		be:enterNextVehicle(0, 1) 
 		
 		if park then
@@ -182,13 +166,26 @@ local function spawnBarnfind(genConfig)
 		
 		spawn.safeTeleport(car, car:getPosition(), car:getRotation())
 		
+		-- send the vehicle and condition info to vehicle lua
 		local stringTable = "{"
+		local tabSize = tableSize(conf_condOverride) -- conf_condOverride == {} and 0 or 
+		local ind = 1
 		for a,b in pairs(conf_condOverride) do
-			stringTable = stringTable..a.." = "..b..", "
+			stringTable = stringTable..a.." = "..b
+			ind = ind + 1
+			if ind <= tabSize then
+				stringTable = stringTable..", "
+			end
 		end
-		stringTable = stringTable.."_ = nil}"
 		
-		car:queueLuaCommand("local condOverride = "..stringTable.." extensions.barnfindGenerator.setupBarnfind("..tostring(wearSeed)..","..tostring(conf_mileage * 1000)..","..tostring(conf_condition)..","..tostring(conf_wearVariation)..","..tostring(conf_showStateReport)..",condOverride,"..tostring(conf_balanceWear)..", true)") 
+		local strWearSeed = tostring(wearSeed)
+		local strConfMile = tostring(conf_mileage * 1000)
+		local strConfCond = tostring(conf_condition)
+		local strConfWearVar = tostring(conf_wearVariation)
+		local strShowRep = tostring(conf_showStateReport)
+		local strConfBal = tostring(conf_balanceWear)
+		
+		car:queueLuaCommand("local condOverride = "..stringTable.."} extensions.barnfindGenerator.setupBarnfind("..strWearSeed..","..strConfMile..","..strConfCond..","..strConfWearVar..","..strShowRep..",condOverride,"..strConfBal..", true)") 
 		
 		-- show the vehicle info on the console
 		if conf_showInfo then
