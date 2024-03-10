@@ -153,39 +153,49 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		
 		-- apply mechanical and powertrain part wear
 		if Eng then
-			-- EXHAUST
-			local beamNum = #exhaustBeams
-			local dam = 0 
-			while dam < -.4 + (1 - wear_Exhaust) do
-				local rng = math.random(1,#exhaustBeams) 
-				local selB = exhaustBeams[rng]
-				obj:breakBeam(selB.cid)
-				beamstate.triggerDeformGroup(selB.breakGroup)
-				table.remove(exhaustBeams,rng)
-				dam = dam + (1 / beamNum)  
-			end
-		
-			-- HEAD GASKET + PISTON RINGS + CONNECTING RODS
-			local parts = {false, false, false}
-			local dam = 0
-			for i = 1,3 do
-				if (1 / (2 ^ i) > wear_Thermals) then
-					dam = dam + 1
-				else
-					break
+			if Thr then
+				-- EXHAUST
+				local beamNum = #exhaustBeams
+				local dam = 0 
+				while dam < -.4 + (1 - wear_Exhaust) do
+					local rng = math.random(1,#exhaustBeams) 
+					local selB = exhaustBeams[rng]
+					obj:breakBeam(selB.cid)
+					beamstate.triggerDeformGroup(selB.breakGroup)
+					table.remove(exhaustBeams,rng)
+					dam = dam + (1 / beamNum)  
 				end
-			end
-			
-			for i = 1,dam do
-				while true do
-					local selPart = math.random(1,#parts)
-					if parts[selPart] == false then
-						parts[selPart] = true
+				
+				-- HEAD GASKET + PISTON RINGS + CONNECTING RODS
+				local parts = {false, false, false}
+				local dam = 0
+				for i = 1,3 do
+					if (1 / (2 ^ i) > wear_Thermals) then
+						dam = dam + 1
+					else
 						break
 					end
 				end
+				
+				for i = 1,dam do
+					while true do
+						local selPart = math.random(1,#parts)
+						if parts[selPart] == false then
+							parts[selPart] = true
+							break
+						end
+					end
+				end
+				Thr.setPartConditionThermals(0,{headGasketBlown = parts[1], pistonRingsDamaged = parts[2], connectingRodBearingsDamaged = parts[3]}) 
+				
+				-- gather engine thermal wear info
+				wearInfo["Engine"] = {
+					["Head_Gasket"] = Thr.headGasketBlown and "Bad" or "Good",
+					["Piston_Rings"] = Thr.pistonRingsDamaged and "Bad" or "Good",
+					["Connecting_Rods"] = Thr.connectingRodBearingsDamaged and "Bad" or "Good",
+					["Exhaust_Pipe"] = tostring(math.floor(wear_Exhaust * 100)).." %"
+				}
 			end
-			Thr.setPartConditionThermals(0,{headGasketBlown = parts[1], pistonRingsDamaged = parts[2], connectingRodBearingsDamaged = parts[3]}) 
 			
 			-- ENGINE
 			Eng.damageDynamicFrictionCoef = finalWear_Crankshaft
@@ -201,25 +211,23 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 				["Idle_Controller"] = tostring(math.max(math.floor(102.5 - (Eng.damageIdleAVReadErrorRangeCoef * Eng.wearIdleAVReadErrorRangeCoef * 2.5)), 0)).." %",
 				["Fuel_Pump"] = tostring(math.floor(100 - (Eng.fastIgnitionErrorChance * 100))).." %",
 				["Spark_Plugs"] = tostring(math.floor(100 - (Eng.slowIgnitionErrorChance * 100))).." %",
-				["Head_Gasket"] = Thr.headGasketBlown and "Bad" or "Good",
-				["Piston_Rings"] = Thr.pistonRingsDamaged and "Bad" or "Good",
-				["Connecting_Rods"] = Thr.connectingRodBearingsDamaged and "Bad" or "Good",
-				["Exhaust_Pipe"] = tostring(math.floor(wear_Exhaust * 100)).." %"
 			}
 			
-			-- RADIATOR
-			Thr.setPartConditionRadiator(0,{coolantMass = reqInfo.coolantMass * wear_Radiator, radiatorDamage = wear_Radiator > .4 and 0 or .2})
-			local _,reqInfo2 = Thr.getPartConditionRadiator()
-			wearInfo["Radiator"] = {
-				["Leaking"] = reqInfo2.radiatorDamage == 0 and "Good" or "Bad",
-				["Coolant"] = tostring(math.floor(wear_Radiator * 100)).." %"
-			}
-			
-			-- OILPAN
-			if wear_Oilpan < .3 then
-				Thr.applyDeformGroupDamageOilpan(.04 - (wear_Oilpan * .1))
+			if Thr then
+				-- RADIATOR
+				Thr.setPartConditionRadiator(0,{coolantMass = reqInfo.coolantMass * wear_Radiator, radiatorDamage = wear_Radiator > .4 and 0 or .2})
+				local _,reqInfo2 = Thr.getPartConditionRadiator()
+				wearInfo["Radiator"] = {
+					["Leaking"] = reqInfo2.radiatorDamage == 0 and "Good" or "Bad",
+					["Coolant"] = tostring(math.floor(wear_Radiator * 100)).." %"
+				}
+				
+				-- OILPAN
+				if wear_Oilpan < .3 then
+					Thr.applyDeformGroupDamageOilpan(.04 - (wear_Oilpan * .1))
+				end
+				wearInfo["Oil_Pan"] = wear_Oilpan < .3 and "Bad" or "Good"
 			end
-			wearInfo["Oil_Pan"] = wear_Oilpan < .3 and "Bad" or "Good"
 			
 			-- TURBO CHARGER
 			if Tur.isExisting then
