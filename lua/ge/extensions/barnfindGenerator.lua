@@ -21,7 +21,7 @@ local function spawnBarnfind(genConfig)
 	log('I', 'Barnfind_State', 'Generating barnfind...')
 	local success,err = pcall(function()
 		-- remember configs and setup rng seed
-		local globalSeed = os.time()
+		local globalSeed = os.time() + os.clock() * 1000
 		spawnSeed = genConfig.Seed or globalSeed
 		wearSeed = genConfig.WearSeed or globalSeed
 		lastConfig = genConfig
