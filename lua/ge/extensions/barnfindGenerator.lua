@@ -17,7 +17,7 @@ local function configBool(val,def)
 end
 
 -- main function
-local function spawnBarnfind(genConfig)
+local function spawnBarnfind(genConfig) 
 	log('I', 'Barnfind_State', 'Generating barnfind...')
 	local success,err = pcall(function()
 		-- remember configs and setup rng seed
@@ -41,6 +41,7 @@ local function spawnBarnfind(genConfig)
 		local conf_WearRandomSeed = genConfig.WearSeed or globalseed
 		local conf_SpawnRandomSeed = genConfig.Seed or globalseed
 		local conf_chancePark = genConfig.ParkChance or .2
+		local conf_moddedVehicles = configBool(genConfig.ModCars,false)
 		
 		local allCars = core_vehicles.getVehicleList().vehicles 
 		local carModel, carConfig, paintColor, paintName
@@ -52,7 +53,7 @@ local function spawnBarnfind(genConfig)
 		for a,b in pairs(allCars) do 
 			if (conf_maxYear == -1 or (b.model.Years and b.model.Years.min <= conf_maxYear)) and (b.model.Type == "Car" or b.model.Type == "Truck") then 
 				for c,d in pairs(b.configs) do 
-					if not (d.Type and string.find(d.Type,"Prop")) then 
+					if not (d.Type and string.find(d.Type,"Prop")) and (conf_moddedVehicles or d.Source == "BeamNG - Official") then 
 						if conf_usePopulation then
 							if d.Population then
 								possibleCars[c] = {b,d}

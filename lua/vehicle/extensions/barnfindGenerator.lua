@@ -48,6 +48,8 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		local eSt = energyStorage.getStorages()
 		local Tur = Eng and Eng.turbocharger or nil
 		local Spc = Eng and Eng.supercharger or nil
+		local fEm = powertrain.getDevice("frontMotor") 
+		local rEm = powertrain.getDevice("rearMotor") 
 		
 		-- natural mileage setup
 		local wear_Paint = setupWear(override.paint)
@@ -58,8 +60,10 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		local wear_Tires = setupWear(override.tires)
 		
 		local wear_Radiator = setupWear(override.radiator)
+		local wear_CoolantLevel = setupWear(override.coolant)
 		local wear_Oilpan = setupWear(override.oilpan)
 		local wear_Thermals = setupWear(override.thermals)
+		local wear_FuelLevel = setupWear(override.fuellevel)
 		local wear_FuelTank = setupWear(override.fueltank)
 		
 		local wear_Exhaust = setupWear(override.exhaust)
@@ -67,6 +71,9 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		local wear_Sparkplugs = setupWear(override.sparkplugs)
 		local wear_FuelPump = setupWear(override.fuelpump)
 		local wear_IdleController = setupWear(override.idle)
+		
+		local wear_ElectricMotor = setupWear(override.motors)
+		local wear_Battery = setupWear(override.battery)
 		
 		local wear_Supercharger = setupWear(override.supercharger)
 		local wear_TurboTurbine = setupWear(override.turboturbine)
@@ -153,6 +160,22 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 		
 		-- apply mechanical and powertrain part wear
 		if Eng then
+			-- ENGINE
+			Eng.damageDynamicFrictionCoef = finalWear_Crankshaft
+			Eng.damageIdleAVReadErrorRangeCoef = math.max(15 - (wear_IdleController * 15), 1)
+			Eng.fastIgnitionErrorChance = finalWear_FuelPump
+			Eng.slowIgnitionErrorChance = finalWear_SparkPlugs
+
+			Eng.wearIdleAVReadErrorRangeCoef = linearScale(totalMileage, 50000000, 1000000000, 1, 5) -- nerf the idle controller wear from mileage
+
+			-- gather main engine wear info
+			wearInfo["Engine"] = {
+				["Crankshaft"] = tostring(math.max(math.floor(103 - (Eng.damageDynamicFrictionCoef * Eng.wearDynamicFrictionCoef * 3)), 0)).." %",
+				["Idle_Controller"] = tostring(math.max(math.floor(102.5 - (Eng.damageIdleAVReadErrorRangeCoef * Eng.wearIdleAVReadErrorRangeCoef * 2.5)), 0)).." %",
+				["Fuel_Pump"] = tostring(math.floor(100 - (Eng.fastIgnitionErrorChance * 100))).." %",
+				["Spark_Plugs"] = tostring(math.floor(100 - (Eng.slowIgnitionErrorChance * 100))).." %",
+			}
+			
 			if Thr then
 				-- EXHAUST
 				local beamNum = #exhaustBeams
@@ -186,41 +209,23 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 						end
 					end
 				end
-				Thr.setPartConditionThermals(0,{headGasketBlown = parts[1], pistonRingsDamaged = parts[2], connectingRodBearingsDamaged = parts[3]}) 
+				Thr.setPartConditionThermals(0,{headGasketBlown = override.headgasket or parts[1], pistonRingsDamaged = override.pistonrings or parts[2], connectingRodBearingsDamaged = override.connectingrods or parts[3]}) 
 				
 				-- gather engine thermal wear info
-				wearInfo["Engine"] = {
-					["Head_Gasket"] = Thr.headGasketBlown and "Bad" or "Good",
-					["Piston_Rings"] = Thr.pistonRingsDamaged and "Bad" or "Good",
-					["Connecting_Rods"] = Thr.connectingRodBearingsDamaged and "Bad" or "Good",
-					["Exhaust_Pipe"] = tostring(math.floor(wear_Exhaust * 100)).." %"
-				}
-			end
+				wearInfo["Engine"]["Head_Gasket"] = Thr.headGasketBlown and "Bad" or "Good"
+				wearInfo["Engine"]["Piston_Rings"] = Thr.pistonRingsDamaged and "Bad" or "Good"
+				wearInfo["Engine"]["Connecting_Rods"] = Thr.connectingRodBearingsDamaged and "Bad" or "Good"
+				wearInfo["Engine"]["Exhaust_Pipe"] = tostring(math.floor(wear_Exhaust * 100)).." %"
 			
-			-- ENGINE
-			Eng.damageDynamicFrictionCoef = finalWear_Crankshaft
-			Eng.damageIdleAVReadErrorRangeCoef = math.max(15 - (wear_IdleController * 15), 1)
-			Eng.fastIgnitionErrorChance = finalWear_FuelPump
-			Eng.slowIgnitionErrorChance = finalWear_SparkPlugs
-
-			Eng.wearIdleAVReadErrorRangeCoef = linearScale(totalMileage, 50000000, 1000000000, 1, 5) -- nerf the idle controller wear from mileage
-
-			-- gather main engine wear info
-			wearInfo["Engine"] = {
-				["Crankshaft"] = tostring(math.max(math.floor(103 - (Eng.damageDynamicFrictionCoef * Eng.wearDynamicFrictionCoef * 3)), 0)).." %",
-				["Idle_Controller"] = tostring(math.max(math.floor(102.5 - (Eng.damageIdleAVReadErrorRangeCoef * Eng.wearIdleAVReadErrorRangeCoef * 2.5)), 0)).." %",
-				["Fuel_Pump"] = tostring(math.floor(100 - (Eng.fastIgnitionErrorChance * 100))).." %",
-				["Spark_Plugs"] = tostring(math.floor(100 - (Eng.slowIgnitionErrorChance * 100))).." %",
-			}
-			
-			if Thr then
 				-- RADIATOR
-				Thr.setPartConditionRadiator(0,{coolantMass = reqInfo.coolantMass * wear_Radiator, radiatorDamage = wear_Radiator > .4 and 0 or .2})
-				local _,reqInfo2 = Thr.getPartConditionRadiator()
-				wearInfo["Radiator"] = {
-					["Leaking"] = reqInfo2.radiatorDamage == 0 and "Good" or "Bad",
-					["Coolant"] = tostring(math.floor(wear_Radiator * 100)).." %"
-				}
+				if Thr.coolantTemperature then
+					Thr.setPartConditionRadiator(0,{coolantMass = reqInfo.coolantMass * wear_CoolantLevel, radiatorDamage = wear_Radiator > .3 and 0 or math.max(.3 - wear_Radiator,0)})
+					local _,reqInfo2 = Thr.getPartConditionRadiator()
+					wearInfo["Radiator"] = {
+						["Leaking"] = reqInfo2.radiatorDamage == 0 and "Good" or "Bad",
+						["Coolant"] = tostring(math.floor(wear_CoolantLevel * 100)).." %"
+					}
+				end
 				
 				-- OILPAN
 				if wear_Oilpan < .3 then
@@ -245,16 +250,33 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
 				local _,reqInfo = Spc.getPartCondition()
 				wearInfo["Supercharger"] = tostring(math.floor(linearScale(totalMileage, 30000000, 1000000000, 1, 0.5) * reqInfo.damagePressureCoef * 100)).." %" 
 			end
+			
+		-- ELECTRIC MOTORS
+		else
+			if fEm then
+				fEm.scaleOutputTorque(fEm, wear_ElectricMotors)
+				wearInfo["Electric Motors"] = tostring(math.floor(wear_ElectricMotors * 100)).." %" 
+			end
+			if rEm then
+				rEm.scaleOutputTorque(rEm, wear_ElectricMotors)
+				wearInfo["Electric Motors"] = tostring(math.floor(wear_ElectricMotors * 100)).." %" 
+			end
 		end
 		
-		-- FUEL TANK
 		for a,b in pairs(eSt) do
+			-- FUEL TANK
 			if b.type == "fuelTank" then
-				b.setPartCondition(b, totalMileage, wear_FuelTank)
+				b.setPartCondition(b, totalMileage, wear_FuelLevel)
+				b.currentLeakRate = wear_FuelTank > .25 and 0 or math.max(.25 - wear_Radiator,0)
 				wearInfo["Fuel_Tank"] = {
 					["Fuel_Level"] = tostring(math.floor(b.remainingRatio * 100)).." %",
 					["Leaking"] = b.currentLeakRate == 0 and "Good" or "Bad"
 				}
+			
+			-- BATTERY
+			elseif b.type == "electricBattery" then
+				b.setRemainingRatio(b, wear_Battery)
+				wearInfo["Battery"] = tostring(math.floor(wear_Battery * 100)).." %" 
 			end
 		end
 		
