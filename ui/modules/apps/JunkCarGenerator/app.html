@@ -1,0 +1,170 @@
+<div class="bngApp junkcargenerator" style="width: 100%; height: 100%">
+  <style>
+    .junkcargenerator table {
+      width: 100%;
+    }
+
+    .junkcargenerator th {
+      text-align: right;
+      font-weight: normal;
+    }
+
+    .junkcargenerator td {
+      vertical-align: center;
+    }
+
+    .junkcargenerator input[type=number] {
+      width: 60px;
+    }
+
+    .junkcargenerator .checkbox-alt {
+      display: inline-block;
+      margin: 0px 4px;
+    }
+
+    .junkcargenerator .button-alt {
+      display: inline-block;
+      height: 24px;
+      min-width: 32px;
+      min-height: 24px;
+      margin: 0 2px;
+      padding: 0 8px;
+      line-height: 1.25em;
+      text-align: center;
+      color: rgb(255, 255, 255);
+      background-color: #ff7300;
+      font-size: 0.8em;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .junkcargenerator .button-alt:hover {
+      background-color: #f59416 !important;
+    }
+
+    .junkcargenerator .button-alt:active {
+      background-color: #d47100 !important;
+    }
+
+    .junkcargenerator .button-alt2 {
+      display: inline-block;
+      height: 24px;
+      min-width: 32px;
+      min-height: 24px;
+      margin: 0 2px;
+      padding: 0 8px;
+      line-height: 1.25em;
+      text-align: center;
+      color: black;
+      background-color: #E0E0E0;
+      font-size: 0.8em;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .junkcargenerator .button-alt2:hover {
+      background-color: #C8C8C8 !important;
+    }
+
+    .junkcargenerator .button-alt2:active {
+      background-color: #A8A8A8 !important;
+    }
+
+    .junkcargenerator .button-alt2 md-icon {
+      color: black;
+    }
+
+    .junkcargenerator .line-break td {
+      padding-bottom: 12px;
+    }
+
+    .junkcargenerator .column-2x:first-child {
+      width: 20%;
+    }
+
+    .junkcargenerator .select {
+      width: 128px;
+      height: auto;
+    }
+    
+    .junkcargenerator .disabled-option {
+      opacity: 0.8;
+      pointer-events: none;
+      background-color: #C8C8C8;
+    }
+  </style>
+  <table>
+    <tr>
+      <td class="column-2x">{{:: "Configuration" }}:</td>
+      <td></td>
+      <td class="column-2x">{{:: "Advanced Settings" }}:</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>{{:: "Setting" }}:</td>
+      <td><md-checkbox class="checkbox-alt" ng-model="setting_b1" aria-label="_"></md-checkbox></td>
+      <td>{{:: "Setting" }}:</td>
+      <td><input class="input-light" flex type="number" min="0" max="40" step="1" ng-value="amount"
+          ng-model="setting_n1" aria-label="_"></td>
+    </tr>
+    <tr>
+      <td>{{:: "Setting" }}:</td>
+      <td><md-checkbox class="checkbox-alt" ng-model="setting_b2" aria-label="_"></md-checkbox></td>
+      <td>{{:: "Setting" }}:</td>
+      <td><input class="input-light" flex type="number" min="0" max="40" step="1" ng-value="amount"
+          ng-model="setting_n2" aria-label="_"></td>
+    </tr>
+    <tr>
+      <td>{{:: "Setting" }}:</td>
+      <td><md-checkbox class="checkbox-alt" ng-model="setting_b3" aria-label="_"></md-checkbox></td>
+      <td>{{:: "Setting" }}:</td>
+      <td><input class="input-light" flex type="number" min="0" max="40" step="1" ng-value="amount"
+          ng-model="setting_n3" aria-label="_"></td>
+    </tr>
+    <tr>
+      <td>{{:: "Setting" }}:</td>
+      <td><md-checkbox class="checkbox-alt" ng-model="setting_b4" aria-label="_"></md-checkbox></td>
+      <td>{{:: "Setting" }}:</td>
+      <td><input class="input-light" flex type="number" min="0" max="40" step="1" ng-value="amount"
+          ng-model="setting_n4" aria-label="_"></td>
+    </tr>
+    <tr>
+      <td>{{:: "Setting" }}:</td>
+      <td><md-checkbox class="checkbox-alt" ng-model="setting_b5" aria-label="_"></md-checkbox></td>
+      <td>{{:: "Setting" }}:</td>
+      <td><input class="input-light" flex type="number" min="0" max="40" step="1" ng-value="amount"
+          ng-model="setting_n5" aria-label="_"></td>
+    </tr>
+    <tr>
+      <td>{{:: "Setting" }}:</td>
+      <td><md-checkbox class="checkbox-alt" ng-model="setting_b6" aria-label="_"></md-checkbox></td>
+      <td>{{:: "Setting" }}:</td>
+      <td><input class="input-light" flex type="number" min="0" max="40" step="1" ng-value="amount"
+          ng-model="setting_n6" aria-label="_"></td>
+    </tr>
+    <tr>
+      <td class="column-2x">{{:: "Vehicle Location" }}:</td>
+      <td></td>
+      <td class="column-2x">{{:: "Regenerate Previous" }}:</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="column-2x">
+        <md-button class="button-alt" ng-click="spawnRandom()">{{:: "Random Location" }}</md-button>
+      </td>
+      <td></td>
+      <td class="column-2x">
+        <md-button class="button-alt" ng-click="spawnHere()">{{:: "Camera Location" }}</md-button>
+      </td>
+    </tr>
+    <tr>
+      <td class="column-2x">
+        <md-button class="button-alt2" ng-click="regenPrevious()">{{:: "Previous Seed" }}</md-button>
+      </td>
+      <td></td>
+      <td class="column-2x">
+        <md-button class="button-alt2" ng-click="reapplyConditions()">{{:: "Reapply Conditions" }}</md-button>
+      </td>
+    </tr>
+  </table>
+</div>

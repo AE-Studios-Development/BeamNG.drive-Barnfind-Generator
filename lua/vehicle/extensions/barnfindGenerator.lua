@@ -89,7 +89,7 @@ local function setupBarnfind(seed, miles, condition, wearVar, showState, overrid
  		local finalWear_Crankshaft = balanceWear and math.max(.98 + 50^(2 * (1 - wear_Crankshaft) - 1), 1) or 1 + (1 - wear_Crankshaft) * 33
 		local finalWear_FuelPump = balanceWear and clamp(100 ^((1 - wear_FuelPump) - 1) - .01, 0, 1) or 1 - wear_FuelPump
 		local finalWear_SparkPlugs = balanceWear and clamp(100 ^((1 - wear_Sparkplugs) - 1) - .01, 0, 1) or 1 - wear_Sparkplugs
-		local finalWear_Turbine = balanceWear and 1 + 10^(7 * (1 - wear_TurboTurbine) - 3.8) - .001 or 1 + (1 - wear_TurboTurbine) * 100
+		local finalWear_Turbine = balanceWear and 1 + 20^(4 * (1 - wear_TurboTurbine) - .5) - .001 or 1 + (1 - wear_TurboTurbine) * 100
 		local finalWear_Panels = balanceWear and 500 ^(-wear_Panels) -.011 or 1 - wear_Panels
 		local finalWear_ManualGearbox = balanceWear and 250 ^(wear_Gearbox - 1) - .01 or 1 - wear_Gearbox
 		

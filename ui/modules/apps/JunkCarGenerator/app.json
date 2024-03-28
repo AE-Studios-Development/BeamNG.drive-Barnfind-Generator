@@ -1,0 +1,18 @@
+{
+  "domElement": "<junk-car-generator></junk-car-generator>",
+  "name": "Junk Car Generator",
+  "types": [
+    "ui.apps.categories.vehicle_info"
+  ],
+  "description": "This is a test.",
+  "css": {
+    "left": "200px",
+    "height": "300px",
+    "top": "200px",
+    "width": "450px"
+  },
+  "author": "Cedminer66",
+  "version": "0.1",
+  "preserveAspectRatio": false,
+  "directive": "junkCarGenerator"
+}

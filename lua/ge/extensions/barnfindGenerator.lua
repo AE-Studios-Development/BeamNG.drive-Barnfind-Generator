@@ -31,17 +31,18 @@ local function spawnBarnfind(genConfig)
 		local conf_maxYear = genConfig.MaxYear or -1
 		local conf_showInfo = configBool(genConfig.ShowInfo,true)
 		local conf_condition = genConfig.Condition or math.random()
-		local conf_mileage = genConfig.Mileage or math.random(0,500000)
+		local conf_mileage = genConfig.Mileage or math.random(0,650000)
 		local conf_showDistance = configBool(genConfig.ShowDist,true)
 		local conf_showStateReport = configBool(genConfig.ShowState,true)
-		local conf_wearVariation = genConfig.WearVar or (.1 + math.random() * .35)
+		local conf_wearVariation = genConfig.WearVar or .35
 		local conf_condOverride = genConfig.Override or {}
 		local conf_balanceWear = configBool(genConfig.Balance,true)
 		local conf_usePopulation = configBool(genConfig.UsePopulation,true)
 		local conf_WearRandomSeed = genConfig.WearSeed or globalseed
 		local conf_SpawnRandomSeed = genConfig.Seed or globalseed
-		local conf_chancePark = genConfig.ParkChance or .2
+		local conf_chancePark = genConfig.ParkChance or .15
 		local conf_moddedVehicles = configBool(genConfig.ModCars,false)
+		local conf_spawnAtCamera = configBool(genConfig.SpawnHere,false)
 		
 		local allCars = core_vehicles.getVehicleList().vehicles 
 		local carModel, carConfig, paintColor, paintName
@@ -110,44 +111,46 @@ local function spawnBarnfind(genConfig)
 		Mileage = tostring(math.floor(conf_mileage)).." km",
 		Condition = tostring(math.floor(conf_condition * 100)).." %"}
 		
-		-- find a random parking spot to spawn the vehicle
 		local park, road
-		if math.random() < conf_chancePark then
-			local allParks = gameplay_parking.getParkingSpots() -- this function makes sure parking sites are loaded before being returned
-			local parkingSpots = gameplay_parking.findParkingSpots(nil, nil, 10000000000) 
-			local parkingSpotNames = tableKeys(parkingSpots) 
+		if not conf_spawnAtCamera then
+			-- find a random parking spot to spawn the vehicle
+			if math.random() < conf_chancePark then
+				local allParks = gameplay_parking.getParkingSpots() -- this function makes sure parking sites are loaded before being returned
+				local parkingSpots = gameplay_parking.findParkingSpots(nil, nil, 10000000000) 
+				local parkingSpotNames = tableKeys(parkingSpots) 
 
-			local parkingSpotName = parkingSpotNames[math.random(tableSize(parkingSpotNames))] 
-			park = parkingSpots[parkingSpotName]
-			
-			if not park then
-				log('W', 'Barnfind_Warning', "This map doesn't have any parking spots, spawning vehicle on a road instead...")
-			end
-		end
-		
-		if park then
-			local approxDistance = math.floor(math.sqrt(park.squaredDistance))
-			if conf_showDistance then
-				carInfo['Distance'] = tostring(approxDistance).." m"
-			end
-		else
-			-- if not, find a random road to spawn the vehicle instead
-			local allNodes = map.getMap().nodes
-			local pathNodes = tableSize(allNodes)
-			
-			if pathNodes > 0 then
-				local selRoad = math.random(1,pathNodes)
-				local allNodesKeys = tableKeys(allNodes)
+				local parkingSpotName = parkingSpotNames[math.random(tableSize(parkingSpotNames))] 
+				park = parkingSpots[parkingSpotName]
 				
-				local roadName = allNodesKeys[selRoad]
-				road = allNodes[roadName]
-				
-				local approxDistance = math.floor(math.sqrt(road.pos:squaredDistance(core_camera.getPosition())))
+				if not park then
+					log('W', 'Barnfind_Warning', "This map doesn't have any parking spots, spawning vehicle on a road instead...")
+				end
+			end
+			
+			if park then
+				local approxDistance = math.floor(math.sqrt(park.squaredDistance))
 				if conf_showDistance then
 					carInfo['Distance'] = tostring(approxDistance).." m"
 				end
 			else
-				error("No available locations could be found to spawn the vehicle. You might need to use a different map.")
+				-- if not, find a random road to spawn the vehicle instead
+				local allNodes = map.getMap().nodes
+				local pathNodes = tableSize(allNodes)
+				
+				if pathNodes > 0 then
+					local selRoad = math.random(1,pathNodes)
+					local allNodesKeys = tableKeys(allNodes)
+					
+					local roadName = allNodesKeys[selRoad]
+					road = allNodes[roadName]
+					
+					local approxDistance = math.floor(math.sqrt(road.pos:squaredDistance(core_camera.getPosition())))
+					if conf_showDistance then
+						carInfo['Distance'] = tostring(approxDistance).." m"
+					end
+				else
+					error("No available locations could be found to spawn the vehicle. You might need to use a different map.")
+				end
 			end
 		end
 
@@ -158,8 +161,8 @@ local function spawnBarnfind(genConfig)
 		if park then
 			gameplay_parking.moveToParkingSpot(car:getId(), park.ps, true)
 		else
-			local vec = road.pos + vec3(0,0,.5)
-			local qua = quatFromEuler(0, 0, math.random() * 360)
+			local vec = road and road.pos + vec3(0,0,.5) or core_camera.getPosition()
+			local qua = road and quatFromEuler(0, 0, math.random() * 360) or quatFromEuler(0, 0, 0)
 			car:setPosRot(vec.x, vec.y, vec.z, qua.x, qua.y, qua.z, qua.w)
 			
 			car:queueLuaCommand("electrics.setIgnitionLevel(0)")
@@ -169,7 +172,7 @@ local function spawnBarnfind(genConfig)
 		
 		-- send the vehicle and condition info to vehicle lua
 		local stringTable = "{"
-		local tabSize = tableSize(conf_condOverride) -- conf_condOverride == {} and 0 or 
+		local tabSize = tableSize(conf_condOverride)
 		local ind = 1
 		for a,b in pairs(conf_condOverride) do
 			stringTable = stringTable..a.." = "..b
